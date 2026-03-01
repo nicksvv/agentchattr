@@ -30,18 +30,34 @@ def _check_tmux():
     sys.exit(1)
 
 
+def _run_tmux(args: list[str], *, timeout: float = 2.0):
+    """Run tmux command with timeout and helpful error on failure."""
+    result = subprocess.run(
+        ["tmux"] + args,
+        capture_output=True,
+        timeout=timeout,
+    )
+    if result.returncode == 0:
+        return
+    stderr = result.stderr.decode("utf-8", errors="ignore").strip()
+    raise RuntimeError(
+        f"tmux {' '.join(args)} failed (exit {result.returncode}): {stderr}"
+    )
+
+
 def inject(text: str, *, tmux_session: str):
     """Send text + Enter to a tmux session via send-keys."""
     # Use -l to send text literally (avoids misinterpreting as key names),
-    # then send Enter as a separate key press
-    subprocess.run(
-        ["tmux", "send-keys", "-t", tmux_session, "-l", text],
-        capture_output=True,
-    )
-    subprocess.run(
-        ["tmux", "send-keys", "-t", tmux_session, "Enter"],
-        capture_output=True,
-    )
+    # then submit with C-m (more reliable for TUIs than "Enter").
+    # Target pane 0.0 explicitly to avoid keystrokes going to a wrong pane.
+    target = f"{tmux_session}:0.0"
+    _run_tmux(["send-keys", "-t", target, "-l", text])
+    time.sleep(0.08)
+    try:
+        _run_tmux(["send-keys", "-t", target, "C-m"])
+    except Exception:
+        # Fallback for tmux/keymap edge-cases.
+        _run_tmux(["send-keys", "-t", target, "Enter"])
 
 
 def get_activity_checker(session_name):

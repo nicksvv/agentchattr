@@ -116,9 +116,9 @@ def _queue_watcher(queue_file: Path, agent_name: str, inject_fn):
                     line = line.strip()
                     if not line:
                         continue
+                    has_trigger = True
                     try:
                         data = json.loads(line)
-                        has_trigger = True
                         if isinstance(data, dict) and "channel" in data:
                             channel = data["channel"]
                     except json.JSONDecodeError:
@@ -127,7 +127,14 @@ def _queue_watcher(queue_file: Path, agent_name: str, inject_fn):
                 if has_trigger:
                     # Small delay to let the TUI settle
                     time.sleep(0.5)
-                    inject_fn(f"mcp read #{channel} and if addressed respond in the chat")
+                    try:
+                        inject_fn(f"mcp read #{channel} and if addressed respond in the chat")
+                    except Exception:
+                        # Re-queue the same lines so trigger is not lost on transient
+                        # injection failures (tmux hiccup, target pane mismatch, etc.).
+                        with open(queue_file, "a", encoding="utf-8") as f:
+                            f.writelines(lines)
+                        raise
         except Exception:
             pass  # Silently continue — monitor will restart if thread dies
 
