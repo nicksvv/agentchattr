@@ -16,12 +16,15 @@ How it works:
 """
 
 import json
+import logging
 import os
 import shutil
 import sys
 import threading
 import time
 import tomllib
+
+log = logging.getLogger(__name__)
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -136,7 +139,7 @@ def _queue_watcher(queue_file: Path, agent_name: str, inject_fn):
                             f.writelines(lines)
                         raise
         except Exception:
-            pass  # Silently continue — monitor will restart if thread dies
+            log.exception("queue watcher error (agent=%s)", agent_name)
 
         time.sleep(1)
 

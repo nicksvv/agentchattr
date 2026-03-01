@@ -52,7 +52,7 @@ def inject(text: str, *, tmux_session: str):
     # Target pane 0.0 explicitly to avoid keystrokes going to a wrong pane.
     target = f"{tmux_session}:0.0"
     _run_tmux(["send-keys", "-t", target, "-l", text])
-    time.sleep(0.08)
+    time.sleep(0.3)
     try:
         _run_tmux(["send-keys", "-t", target, "C-m"])
     except Exception:
